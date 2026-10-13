@@ -15,12 +15,16 @@ import {
   Copy,
   AlertCircle,
   CreditCard,
+  QrCode,
+  Smartphone,
+  Zap,
 } from 'lucide-react';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
 import { RoomType, Booking } from '@/lib/types';
 import { formatINR } from '@/lib/pricing';
 import { RazorpayModal } from '@/components/razorpay-modal';
+import { PhonePeModal } from '@/components/phonepe-modal';
 import confetti from 'canvas-confetti';
 
 declare global {
@@ -63,12 +67,19 @@ function BookingFlowContent() {
   const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Interactive Razorpay Sandbox Modal State
+  // Payment Gateway selection & Modal states
+  const [selectedGateway, setSelectedGateway] = useState<'phonepe' | 'razorpay'>('phonepe');
   const [isRazorpayModalOpen, setIsRazorpayModalOpen] = useState(false);
   const [currentRazorpayOrder, setCurrentRazorpayOrder] = useState<{
     orderId: string;
     amountPaise: number;
     keyId: string;
+  } | null>(null);
+
+  const [isPhonePeModalOpen, setIsPhonePeModalOpen] = useState(false);
+  const [currentPhonePeOrder, setCurrentPhonePeOrder] = useState<{
+    merchantTransactionId: string;
+    amountPaise: number;
   } | null>(null);
 
   // Load room types
@@ -316,6 +327,46 @@ function BookingFlowContent() {
     } catch (err: unknown) {
       setErrorMessage((err as Error).message || 'Payment initiation error.');
       setLoading(false);
+    }
+  };
+
+  // Handle PhonePe Payment Trigger
+  const handleInitiatePhonePePayment = async () => {
+    if (!activeBooking) return;
+    setLoading(true);
+    setErrorMessage('');
+
+    try {
+      const res = await fetch('/api/payment/phonepe/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: activeBooking.id }),
+      });
+
+      const data = await res.json();
+      if (!data.success) {
+        setErrorMessage(data.error || 'Failed to initiate PhonePe transaction.');
+        setLoading(false);
+        return;
+      }
+
+      setCurrentPhonePeOrder({
+        merchantTransactionId: data.merchantTransactionId,
+        amountPaise: data.amountPaise,
+      });
+      setIsPhonePeModalOpen(true);
+    } catch (err: unknown) {
+      setErrorMessage((err as Error).message || 'Server communication error.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePayAdvanceDeposit = () => {
+    if (selectedGateway === 'phonepe') {
+      handleInitiatePhonePePayment();
+    } else {
+      handleInitiatePayment();
     }
   };
 
@@ -733,24 +784,99 @@ function BookingFlowContent() {
               </div>
             </div>
 
-            {/* Payment Button */}
-            <div className="pt-6 border-t border-hotel-charcoal/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+            {/* Payment Gateway Selection */}
+            <div className="pt-6 border-t border-hotel-charcoal/10 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-hotel-charcoal">
+                  Select Advance Payment Method
+                </span>
+                <span className="text-[11px] text-hotel-muted">
+                  Required 30% Deposit: <strong className="text-hotel-cypress">{formatINR(activeBooking.advance_amount_paise)}</strong>
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* PhonePe Option */}
+                <div
+                  onClick={() => setSelectedGateway('phonepe')}
+                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                    selectedGateway === 'phonepe'
+                      ? 'border-[#5f259f] bg-purple-50/50 shadow-sm'
+                      : 'border-hotel-charcoal/10 bg-hotel-sand/20 hover:border-hotel-charcoal/25'
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-[#5f259f] text-white flex items-center justify-center font-bold text-xs shadow-sm">
+                        पे
+                      </div>
+                      <div>
+                        <span className="text-sm font-bold text-hotel-charcoal block">PhonePe UPI & QR</span>
+                        <span className="text-[10px] text-purple-700 font-semibold block">0% Extra Fee · Instant Approval</span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-green-100 text-green-800 border border-green-200">
+                      Recommended
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-hotel-muted leading-relaxed">
+                    Dynamic QR code & UPI Apps (GPay, PhonePe, Paytm, BHIM). Free for hotels with 0% gateway cut.
+                  </p>
+                </div>
+
+                {/* Razorpay Option */}
+                <div
+                  onClick={() => setSelectedGateway('razorpay')}
+                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                    selectedGateway === 'razorpay'
+                      ? 'border-blue-600 bg-blue-50/40 shadow-sm'
+                      : 'border-hotel-charcoal/10 bg-hotel-sand/20 hover:border-hotel-charcoal/25'
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+                        R
+                      </div>
+                      <div>
+                        <span className="text-sm font-bold text-hotel-charcoal block">Razorpay Gateway</span>
+                        <span className="text-[10px] text-blue-700 font-semibold block">Cards & Netbanking</span>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-hotel-muted leading-relaxed">
+                    Visa, Mastercard, RuPay, Corporate Cards, and Netbanking with PCI-DSS 3D-Secure.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Button & Trust Badge */}
+            <div className="pt-4 border-t border-hotel-charcoal/10 flex flex-col sm:flex-row items-center justify-between gap-4">
               <span className="text-xs text-hotel-muted flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-hotel-cypress" />
-                Processed securely via Razorpay (UPI, Credit/Debit, Netbanking)
+                {selectedGateway === 'phonepe'
+                  ? 'Official PhonePe PG Sandbox (Zero real merchant credentials needed)'
+                  : 'Processed securely via Razorpay PCI-DSS compliant checkout'}
               </span>
 
               <button
                 type="button"
-                onClick={handleInitiatePayment}
+                onClick={handlePayAdvanceDeposit}
                 disabled={loading || holdSecondsRemaining <= 0}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-hotel-cypress hover:bg-hotel-cypress-dark disabled:opacity-50 text-white text-xs uppercase tracking-wider font-semibold px-10 py-4 rounded-full transition-all shadow-subtle active:scale-[0.98]"
+                className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 text-white text-xs uppercase tracking-wider font-semibold px-9 py-4 rounded-full transition-all shadow-subtle active:scale-[0.98] disabled:opacity-50 ${
+                  selectedGateway === 'phonepe'
+                    ? 'bg-[#5f259f] hover:bg-[#4d1d82]'
+                    : 'bg-hotel-cypress hover:bg-hotel-cypress-dark'
+                }`}
               >
-                <CreditCard className="w-4 h-4" />
+                {selectedGateway === 'phonepe' ? <QrCode className="w-4 h-4" /> : <CreditCard className="w-4 h-4" />}
                 <span>
                   {loading
                     ? 'Connecting to Gateway...'
-                    : `Pay ${formatINR(activeBooking.advance_amount_paise)} Deposit`}
+                    : selectedGateway === 'phonepe'
+                    ? `Pay ${formatINR(activeBooking.advance_amount_paise)} via PhonePe`
+                    : `Pay ${formatINR(activeBooking.advance_amount_paise)} via Razorpay`}
                 </span>
               </button>
             </div>
@@ -904,6 +1030,49 @@ function BookingFlowContent() {
               }
             } catch {
               setErrorMessage('Network error during payment verification.');
+            } finally {
+              setLoading(false);
+            }
+          }}
+          onFailure={(err) => setErrorMessage(err)}
+        />
+      )}
+
+      {/* Embedded PhonePe Sandbox Modal */}
+      {currentPhonePeOrder && activeBooking && (
+        <PhonePeModal
+          isOpen={isPhonePeModalOpen}
+          onClose={() => setIsPhonePeModalOpen(false)}
+          merchantTransactionId={currentPhonePeOrder.merchantTransactionId}
+          amountPaise={currentPhonePeOrder.amountPaise}
+          bookingReference={activeBooking.booking_reference}
+          guestName={guestName}
+          guestEmail={guestEmail}
+          guestPhone={guestPhone}
+          onSuccess={async (paymentData) => {
+            setIsPhonePeModalOpen(false);
+            setLoading(true);
+            try {
+              const verifyRes = await fetch('/api/payment/phonepe/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  bookingId: activeBooking.id,
+                  merchantTransactionId: paymentData.merchantTransactionId,
+                  phonepeTransactionId: paymentData.phonepeTransactionId,
+                  utrNumber: paymentData.utrNumber,
+                }),
+              });
+              const verifyData = await verifyRes.json();
+              if (verifyData.success) {
+                setConfirmedBooking(verifyData.booking);
+                setCurrentStep(4);
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+              } else {
+                setErrorMessage(verifyData.error || 'PhonePe payment verification failed.');
+              }
+            } catch {
+              setErrorMessage('Network error during PhonePe payment verification.');
             } finally {
               setLoading(false);
             }

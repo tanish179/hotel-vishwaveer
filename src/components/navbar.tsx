@@ -24,6 +24,7 @@ export function Navbar() {
     { label: 'Dining', href: '/#dining' },
     { label: 'Amenities', href: '/#amenities' },
     { label: 'Location', href: '/#location' },
+    { label: 'PhonePe 0% Demo', href: '/demo/phonepe' },
     { label: 'Razorpay Demo', href: '/demo/razorpay' },
   ];
 
@@ -55,14 +56,16 @@ export function Navbar() {
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-7">
+          <nav className="hidden md:flex items-center gap-6">
             {navLinks.map((link) => (
               <Link
                 key={link.label}
                 href={link.href}
                 className={`text-sm font-medium transition-colors duration-200 ${
-                  link.label === 'Razorpay Demo'
-                    ? 'text-blue-900 font-semibold'
+                  link.label === 'PhonePe 0% Demo'
+                    ? 'text-purple-900 font-semibold hover:text-purple-700'
+                    : link.label === 'Razorpay Demo'
+                    ? 'text-blue-900 font-semibold hover:text-blue-700'
                     : 'text-hotel-charcoal/80 hover:text-hotel-cypress'
                 }`}
               >
@@ -72,13 +75,23 @@ export function Navbar() {
           </nav>
 
           {/* CTAs */}
-          <div className="hidden lg:flex items-center gap-3">
+          <div className="hidden lg:flex items-center gap-2.5">
+            <Link
+              href="/demo/phonepe"
+              className="text-xs uppercase tracking-wider font-semibold text-purple-900 bg-purple-50 border border-purple-200/80 hover:bg-purple-100 flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all"
+              title="Interactive PhonePe 0% UPI Sandbox"
+            >
+              <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
+              PhonePe
+            </Link>
+
             <Link
               href="/demo/razorpay"
               className="text-xs uppercase tracking-wider font-semibold text-blue-900 bg-blue-50 border border-blue-200/80 hover:bg-blue-100 flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all"
+              title="Razorpay Gateway Demo"
             >
               <CreditCard className="w-3.5 h-3.5 text-blue-700" />
-              Demo
+              Razorpay
             </Link>
 
             <Link
