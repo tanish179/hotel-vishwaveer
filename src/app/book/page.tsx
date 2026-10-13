@@ -20,6 +20,7 @@ import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
 import { RoomType, Booking } from '@/lib/types';
 import { formatINR } from '@/lib/pricing';
+import { RazorpayModal } from '@/components/razorpay-modal';
 import confetti from 'canvas-confetti';
 
 declare global {
@@ -61,6 +62,14 @@ function BookingFlowContent() {
   const [errorMessage, setErrorMessage] = useState('');
   const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Interactive Razorpay Sandbox Modal State
+  const [isRazorpayModalOpen, setIsRazorpayModalOpen] = useState(false);
+  const [currentRazorpayOrder, setCurrentRazorpayOrder] = useState<{
+    orderId: string;
+    amountPaise: number;
+    keyId: string;
+  } | null>(null);
 
   // Load room types
   useEffect(() => {
@@ -201,7 +210,19 @@ function BookingFlowContent() {
         return;
       }
 
-      // 2. Open Razorpay Checkout Modal
+      // If running with sandbox/mock test key, open interactive Razorpay Sandbox Modal
+      if (
+        orderData.keyId.includes('Mock') ||
+        orderData.keyId.includes('mock') ||
+        orderData.keyId.includes('placeholder')
+      ) {
+        setCurrentRazorpayOrder(orderData);
+        setIsRazorpayModalOpen(true);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Open Official Razorpay Checkout Modal
       const options = {
         key: orderData.keyId,
         amount: orderData.amountPaise,
@@ -846,6 +867,49 @@ function BookingFlowContent() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Embedded Razorpay Sandbox Modal */}
+      {currentRazorpayOrder && activeBooking && (
+        <RazorpayModal
+          isOpen={isRazorpayModalOpen}
+          onClose={() => setIsRazorpayModalOpen(false)}
+          orderId={currentRazorpayOrder.orderId}
+          amountPaise={currentRazorpayOrder.amountPaise}
+          bookingReference={activeBooking.booking_reference}
+          guestName={guestName}
+          guestEmail={guestEmail}
+          guestPhone={guestPhone}
+          onSuccess={async (paymentData) => {
+            setIsRazorpayModalOpen(false);
+            setLoading(true);
+            try {
+              const verifyRes = await fetch('/api/payment/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  bookingId: activeBooking.id,
+                  razorpayOrderId: paymentData.razorpay_order_id,
+                  razorpayPaymentId: paymentData.razorpay_payment_id,
+                  razorpaySignature: paymentData.razorpay_signature,
+                }),
+              });
+              const verifyData = await verifyRes.json();
+              if (verifyData.success) {
+                setConfirmedBooking(verifyData.booking);
+                setCurrentStep(4);
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+              } else {
+                setErrorMessage(verifyData.error || 'Payment signature verification failed.');
+              }
+            } catch {
+              setErrorMessage('Network error during payment verification.');
+            } finally {
+              setLoading(false);
+            }
+          }}
+          onFailure={(err) => setErrorMessage(err)}
+        />
       )}
     </div>
   );

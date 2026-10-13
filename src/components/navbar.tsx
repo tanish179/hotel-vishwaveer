@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ArrowUpRight, Menu, X, CalendarCheck, ShieldCheck } from 'lucide-react';
+import { ArrowUpRight, Menu, X, CalendarCheck, ShieldCheck, CreditCard } from 'lucide-react';
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -24,6 +24,7 @@ export function Navbar() {
     { label: 'Dining', href: '/#dining' },
     { label: 'Amenities', href: '/#amenities' },
     { label: 'Location', href: '/#location' },
+    { label: 'Razorpay Demo', href: '/demo/razorpay' },
   ];
 
   return (
@@ -54,12 +55,16 @@ export function Navbar() {
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-8">
+          <nav className="hidden md:flex items-center gap-7">
             {navLinks.map((link) => (
               <Link
                 key={link.label}
                 href={link.href}
-                className="text-sm font-medium text-hotel-charcoal/80 hover:text-hotel-cypress transition-colors duration-200"
+                className={`text-sm font-medium transition-colors duration-200 ${
+                  link.label === 'Razorpay Demo'
+                    ? 'text-blue-900 font-semibold'
+                    : 'text-hotel-charcoal/80 hover:text-hotel-cypress'
+                }`}
               >
                 {link.label}
               </Link>
@@ -67,10 +72,18 @@ export function Navbar() {
           </nav>
 
           {/* CTAs */}
-          <div className="hidden lg:flex items-center gap-4">
+          <div className="hidden lg:flex items-center gap-3">
+            <Link
+              href="/demo/razorpay"
+              className="text-xs uppercase tracking-wider font-semibold text-blue-900 bg-blue-50 border border-blue-200/80 hover:bg-blue-100 flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all"
+            >
+              <CreditCard className="w-3.5 h-3.5 text-blue-700" />
+              Demo
+            </Link>
+
             <Link
               href="/lookup"
-              className="text-xs uppercase tracking-wider font-semibold text-hotel-charcoal/70 hover:text-hotel-charcoal flex items-center gap-1.5 px-3 py-2 rounded-full hover:bg-black/5 transition-all"
+              className="text-xs uppercase tracking-wider font-semibold text-hotel-charcoal/70 hover:text-hotel-charcoal flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-black/5 transition-all"
             >
               <CalendarCheck className="w-3.5 h-3.5" />
               Find Booking
