@@ -5,7 +5,7 @@ import { isBefore, parseISO } from 'date-fns';
 
 export async function POST(request: Request) {
   try {
-    const { bookingId } = await request.json();
+    const { bookingId, guestName, guestEmail, guestPhone } = await request.json();
 
     if (!bookingId) {
       return NextResponse.json(
@@ -20,6 +20,20 @@ export async function POST(request: Request) {
         { success: false, error: 'Reservation record not found' },
         { status: 404 }
       );
+    }
+
+    // Always ensure the guest name is updated if provided
+    if (guestName && guestName.trim()) {
+      db.updateGuest(booking.guest_id, {
+        full_name: guestName.trim(),
+        email: guestEmail ? guestEmail.trim().toLowerCase() : undefined,
+        phone: guestPhone ? guestPhone.trim() : undefined,
+      });
+      if (booking.guest) {
+        booking.guest.full_name = guestName.trim();
+        if (guestEmail) booking.guest.email = guestEmail.trim().toLowerCase();
+        if (guestPhone) booking.guest.phone = guestPhone.trim();
+      }
     }
 
     if (booking.status === 'confirmed') {

@@ -470,6 +470,22 @@ function getStore(): StoreState {
 // ----------------------------------------------------------------------------
 
 export const db = {
+  getStore(): StoreState {
+    return getStore();
+  },
+
+  updateGuest(guestId: string, updates: Partial<Guest>): Guest | null {
+    const store = getStore();
+    const guest = store.guests.find((g) => g.id === guestId);
+    if (!guest) return null;
+    if (updates.full_name !== undefined) guest.full_name = updates.full_name.trim();
+    if (updates.email !== undefined) guest.email = updates.email.trim().toLowerCase();
+    if (updates.phone !== undefined) guest.phone = updates.phone.trim();
+    if (updates.city !== undefined) guest.city = updates.city.trim();
+    if (updates.country !== undefined) guest.country = updates.country.trim();
+    return { ...guest };
+  },
+
   // Hotel Settings
   getSettings(): HotelSettings {
     const store = getStore();
@@ -677,20 +693,40 @@ export const db = {
         advancePercent: store.settings.advance_payment_percent,
       });
 
-      // Upsert guest
-      let guest = store.guests.find(
-        (g) => g.email.toLowerCase() === guestEmail.toLowerCase() && g.phone === guestPhone
-      );
+      // Upsert guest - match by email or clean phone
+      const cleanEmail = (guestEmail || '').toLowerCase().trim();
+      const cleanPhoneDigits = (guestPhone || '').replace(/[^0-9]/g, '');
+
+      let guest = store.guests.find((g) => {
+        const gEmail = (g.email || '').toLowerCase().trim();
+        const gPhoneDigits = (g.phone || '').replace(/[^0-9]/g, '');
+        return (
+          (cleanEmail && gEmail === cleanEmail) ||
+          (cleanPhoneDigits && gPhoneDigits === cleanPhoneDigits)
+        );
+      });
+
       if (!guest) {
         guest = {
           id: `guest-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-          full_name: guestName,
-          email: guestEmail,
-          phone: guestPhone,
+          full_name: (guestName || 'Valued Guest').trim(),
+          email: cleanEmail || 'guest@example.com',
+          phone: guestPhone || '+91 98201 54321',
           country: 'India',
           created_at: new Date().toISOString(),
         };
         store.guests.push(guest);
+      } else {
+        // ALWAYS update full name with latest user entry
+        if (guestName && guestName.trim()) {
+          guest.full_name = guestName.trim();
+        }
+        if (cleanEmail) {
+          guest.email = cleanEmail;
+        }
+        if (guestPhone && guestPhone.trim()) {
+          guest.phone = guestPhone.trim();
+        }
       }
 
       // Generate booking reference: VWV-YYYY-XXXX
@@ -885,9 +921,9 @@ export const db = {
     const b = store.bookings.find((item) => item.id === id);
     if (!b) return null;
 
-    const room = store.rooms.find((r) => r.id === b.room_id);
-    const roomType = store.roomTypes.find((rt) => rt.id === b.room_type_id);
-    const guest = store.guests.find((g) => g.id === b.guest_id);
+    const room = store.rooms.find((r) => r.id === b.room_id) || b.room;
+    const roomType = store.roomTypes.find((rt) => rt.id === b.room_type_id) || b.room_type;
+    const guest = store.guests.find((g) => g.id === b.guest_id) || b.guest;
     const payments = store.payments.filter((p) => p.booking_id === b.id);
 
     return {

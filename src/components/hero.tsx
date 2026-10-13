@@ -47,11 +47,11 @@ export function Hero() {
   return (
     <section
       ref={containerRef}
-      className="relative min-h-[92dvh] flex flex-col justify-between pt-32 pb-16 px-6 md:px-12 bg-hotel-limestone overflow-hidden border-b border-hotel-charcoal/10"
+      className="relative min-h-[92dvh] flex flex-col justify-between pt-28 sm:pt-32 pb-12 sm:pb-16 px-4 sm:px-6 md:px-12 bg-hotel-limestone overflow-hidden border-b border-hotel-charcoal/10"
     >
       {/* Background Architectural Texture & Subtle Gradient */}
       <div className="absolute inset-0 pointer-events-none z-0">
-        <div className="absolute top-0 right-0 w-[55vw] h-[75vh] opacity-25 rounded-bl-[12rem] overflow-hidden">
+        <div className="absolute top-0 right-0 w-[85vw] sm:w-[55vw] h-[60vh] sm:h-[75vh] opacity-25 rounded-bl-[8rem] sm:rounded-bl-[12rem] overflow-hidden">
           <Image
             src="https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=2000&q=85"
             alt="Hotel Vishwaveer Heritage Estate Courtyard"
@@ -67,8 +67,8 @@ export function Hero() {
 
       <div className="relative z-10 max-w-7xl mx-auto w-full">
         {/* Eyebrow badge */}
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-hotel-charcoal/5 border border-hotel-charcoal/10 text-[10px] tracking-[0.25em] uppercase text-hotel-cypress font-medium mb-8">
-          <Compass className="w-3 h-3 text-hotel-brass" />
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-hotel-charcoal/5 border border-hotel-charcoal/10 text-[10px] tracking-[0.25em] uppercase text-hotel-cypress font-medium mb-6 sm:mb-8">
+          <Compass className="w-3 h-3 text-hotel-brass shrink-0" />
           <span>Historic Kolhapur · Heritage Estate</span>
         </div>
 
@@ -76,14 +76,14 @@ export function Hero() {
         <div className="max-w-4xl">
           <h1
             ref={headlineRef}
-            className="font-serif text-5xl sm:text-6xl md:text-7xl lg:text-8xl tracking-tight text-hotel-charcoal font-normal leading-[1.05]"
+            className="font-serif text-3xl sm:text-5xl md:text-7xl lg:text-8xl tracking-tight text-hotel-charcoal font-normal leading-[1.08] sm:leading-[1.05]"
           >
-            Where Heritage Breathes <span className="italic font-light text-hotel-cypress">in Stone</span> & Silence.
+            Where Heritage Breathes <span className="italic font-light text-hotel-cypress">in Stone</span> &amp; Silence.
           </h1>
 
           <p
             ref={subtextRef}
-            className="mt-6 text-base sm:text-lg md:text-xl text-hotel-muted font-sans font-normal max-w-[58ch] leading-relaxed"
+            className="mt-4 sm:mt-6 text-sm sm:text-lg md:text-xl text-hotel-muted font-sans font-normal max-w-[58ch] leading-relaxed"
           >
             A restored sanctuary of quiet Deccan luxury. Ten handcrafted suites, private courtyard verandas, and authentic culinary traditions framed by timeless architecture.
           </p>

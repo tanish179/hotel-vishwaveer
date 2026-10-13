@@ -88,37 +88,43 @@ export function PhonePeModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-purple-200 flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-md bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden border border-purple-200 flex flex-col max-h-[92vh]">
         {/* Authentic PhonePe Brand Header (Purple #5f259f) */}
-        <div className="bg-[#5f259f] text-white p-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-[#5f259f] font-black text-xl shadow">
-              पे
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-sm tracking-tight">PhonePe Gateway</span>
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-purple-400/30 text-purple-200 font-bold uppercase tracking-wider">
-                  0% Fee UPI
+        <div className="bg-[#5f259f] text-white p-4 sm:p-5 flex flex-col">
+          {/* Mobile Sheet Handle */}
+          <div className="sm:hidden w-10 h-1 bg-white/30 rounded-full mx-auto mb-3" />
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-[#5f259f] font-black text-xl shadow shrink-0">
+                पे
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-sm tracking-tight">PhonePe Gateway</span>
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-purple-400/30 text-purple-200 font-bold uppercase tracking-wider">
+                    0% Fee UPI
+                  </span>
+                </div>
+                <span className="text-[11px] text-purple-200 block truncate max-w-[200px] sm:max-w-none">
+                  Hotel Vishwaveer · Ref: {bookingReference}
                 </span>
               </div>
-              <span className="text-[11px] text-purple-200 block">
-                Hotel Vishwaveer · Ref: {bookingReference}
-              </span>
             </div>
-          </div>
 
-          <button
-            onClick={onClose}
-            className="p-1 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+              aria-label="Close PhonePe Modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Amount Ribbon */}
-        <div className="bg-purple-50/70 border-b border-purple-100 px-5 py-3 flex items-center justify-between">
+        <div className="bg-purple-50/70 border-b border-purple-100 px-4 sm:px-5 py-3 flex items-center justify-between">
           <div>
             <span className="text-[11px] text-purple-900 font-medium block">
               30% Advance Deposit Required
@@ -275,7 +281,7 @@ export function PhonePeModal({
             type="button"
             disabled={isProcessing}
             onClick={handleAuthorizeSuccess}
-            className="w-full py-3.5 bg-[#5f259f] hover:bg-[#4d1d82] disabled:opacity-50 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.99]"
+            className="w-full py-4 bg-[#5f259f] hover:bg-[#4d1d82] disabled:opacity-50 text-white rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.99] min-h-[48px]"
           >
             <CheckCircle2 className="w-4 h-4 text-emerald-300" />
             <span>

@@ -33,15 +33,15 @@ export default async function HomePage() {
       <Hero />
 
       {/* Featured Suites Section */}
-      <section id="suites" className="py-28 md:py-36 px-6 md:px-12 bg-hotel-limestone border-b border-hotel-charcoal/10">
+      <section id="suites" className="py-16 sm:py-28 md:py-36 px-4 sm:px-6 md:px-12 bg-hotel-limestone border-b border-hotel-charcoal/10">
         <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 sm:mb-16 gap-6">
             <div>
-              <span className="text-[10px] uppercase tracking-[0.25em] text-hotel-muted font-bold block mb-3">
+              <span className="text-[10px] uppercase tracking-[0.25em] text-hotel-muted font-bold block mb-2 sm:mb-3">
                 Accommodations
               </span>
-              <h2 className="font-serif text-4xl sm:text-5xl md:text-6xl text-hotel-charcoal font-normal tracking-tight">
-                Suites & Residences
+              <h2 className="font-serif text-3xl sm:text-5xl md:text-6xl text-hotel-charcoal font-normal tracking-tight">
+                Suites &amp; Residences
               </h2>
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -59,7 +59,7 @@ export default async function HomePage() {
           </div>
 
           {/* Room Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8 lg:gap-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-10">
             {featuredRooms.map((room) => (
               <RoomCard key={room.id} room={room} />
             ))}

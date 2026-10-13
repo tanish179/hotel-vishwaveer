@@ -58,7 +58,7 @@ export function BookingSearchBar({
                   setCheckOut(format(addDays(new Date(e.target.value), 1), 'yyyy-MM-dd'));
                 }
               }}
-              className="bg-transparent text-sm font-semibold text-hotel-charcoal focus:outline-none cursor-pointer"
+              className="bg-transparent text-base sm:text-sm font-semibold text-hotel-charcoal focus:outline-none cursor-pointer w-full min-h-[38px]"
               required
             />
           </div>
@@ -74,7 +74,7 @@ export function BookingSearchBar({
               value={checkOut}
               min={format(addDays(new Date(checkIn || today), 1), 'yyyy-MM-dd')}
               onChange={(e) => setCheckOut(e.target.value)}
-              className="bg-transparent text-sm font-semibold text-hotel-charcoal focus:outline-none cursor-pointer"
+              className="bg-transparent text-base sm:text-sm font-semibold text-hotel-charcoal focus:outline-none cursor-pointer w-full min-h-[38px]"
               required
             />
           </div>
@@ -88,7 +88,7 @@ export function BookingSearchBar({
             <select
               value={guests}
               onChange={(e) => setGuests(parseInt(e.target.value, 10))}
-              className="bg-transparent text-sm font-semibold text-hotel-charcoal focus:outline-none cursor-pointer"
+              className="bg-transparent text-base sm:text-sm font-semibold text-hotel-charcoal focus:outline-none cursor-pointer w-full min-h-[38px]"
             >
               <option value={1}>1 Guest (Single)</option>
               <option value={2}>2 Guests (Couple)</option>

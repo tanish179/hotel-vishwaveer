@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
+import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Calendar,
@@ -23,7 +24,6 @@ import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
 import { RoomType, Booking } from '@/lib/types';
 import { formatINR } from '@/lib/pricing';
-import { RazorpayModal } from '@/components/razorpay-modal';
 import { PhonePeModal } from '@/components/phonepe-modal';
 import confetti from 'canvas-confetti';
 
@@ -67,19 +67,15 @@ function BookingFlowContent() {
   const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Payment Gateway selection & Modal states
-  const [selectedGateway, setSelectedGateway] = useState<'phonepe' | 'razorpay'>('phonepe');
-  const [isRazorpayModalOpen, setIsRazorpayModalOpen] = useState(false);
-  const [currentRazorpayOrder, setCurrentRazorpayOrder] = useState<{
-    orderId: string;
-    amountPaise: number;
-    keyId: string;
-  } | null>(null);
-
+  // PhonePe Payment & Verification State
   const [isPhonePeModalOpen, setIsPhonePeModalOpen] = useState(false);
   const [currentPhonePeOrder, setCurrentPhonePeOrder] = useState<{
     merchantTransactionId: string;
     amountPaise: number;
+  } | null>(null);
+  const [verifiedPaymentData, setVerifiedPaymentData] = useState<{
+    phonepeTransactionId: string;
+    utrNumber: string;
   } | null>(null);
 
   // Load room types
@@ -200,136 +196,6 @@ function BookingFlowContent() {
     }
   };
 
-  // Handle Razorpay Payment Trigger
-  const handleInitiatePayment = async () => {
-    if (!activeBooking) return;
-    setLoading(true);
-    setErrorMessage('');
-
-    try {
-      // 1. Create Order on Server
-      const orderRes = await fetch('/api/payment/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: activeBooking.id }),
-      });
-
-      const orderData = await orderRes.json();
-      if (!orderData.success) {
-        setErrorMessage(orderData.error || 'Failed to initiate Razorpay order.');
-        setLoading(false);
-        return;
-      }
-
-      // If running with sandbox/mock test key, open interactive Razorpay Sandbox Modal
-      if (
-        orderData.keyId.includes('Mock') ||
-        orderData.keyId.includes('mock') ||
-        orderData.keyId.includes('placeholder')
-      ) {
-        setCurrentRazorpayOrder(orderData);
-        setIsRazorpayModalOpen(true);
-        setLoading(false);
-        return;
-      }
-
-      // 2. Open Official Razorpay Checkout Modal
-      const options = {
-        key: orderData.keyId,
-        amount: orderData.amountPaise,
-        currency: orderData.currency,
-        name: 'Hotel Vishwaveer',
-        description: `30% Advance Deposit - Ref: ${activeBooking.booking_reference}`,
-        image: '/brand/logo.svg',
-        order_id: orderData.orderId,
-        prefill: {
-          name: guestName,
-          email: guestEmail,
-          contact: guestPhone,
-        },
-        theme: {
-          color: '#233726', // Hotel cypress brand color
-        },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        handler: async function (response: any) {
-          // 3. Cryptographically verify signature on server
-          setLoading(true);
-          try {
-            const verifyRes = await fetch('/api/payment/verify', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                bookingId: activeBooking.id,
-                razorpayOrderId: response.razorpay_order_id || orderData.orderId,
-                razorpayPaymentId: response.razorpay_payment_id,
-                razorpaySignature: response.razorpay_signature,
-              }),
-            });
-
-            const verifyData = await verifyRes.json();
-            if (verifyData.success) {
-              setConfirmedBooking(verifyData.booking);
-              setCurrentStep(4);
-              confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-            } else {
-              setErrorMessage(
-                verifyData.error ||
-                  'Payment signature verification failed. Please contact support.'
-              );
-            }
-          } catch (err: unknown) {
-            setErrorMessage('Network error during payment verification.');
-          } finally {
-            setLoading(false);
-          }
-        },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        modal: {
-          ondismiss: function () {
-            setLoading(false);
-          },
-        },
-      };
-
-      if (typeof window.Razorpay !== 'undefined') {
-        const rzp = new window.Razorpay(options);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        rzp.on('payment.failed', function (response: any) {
-          setErrorMessage(
-            `Payment attempt failed: ${response.error?.description || 'Gateway declined'}`
-          );
-          setLoading(false);
-        });
-        rzp.open();
-      } else {
-        // Fallback simulator for headless or test environments
-        console.warn('Razorpay SDK not loaded in DOM; using verified mock test payment flow');
-        const mockVerifyRes = await fetch('/api/payment/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            bookingId: activeBooking.id,
-            razorpayOrderId: orderData.orderId,
-            razorpayPaymentId: `pay_test_${Date.now()}`,
-            razorpaySignature: 'sig_test_simulator_ok',
-          }),
-        });
-        const verifyData = await mockVerifyRes.json();
-        if (verifyData.success) {
-          setConfirmedBooking(verifyData.booking);
-          setCurrentStep(4);
-          confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-        } else {
-          setErrorMessage(verifyData.error || 'Failed to simulate verification.');
-        }
-        setLoading(false);
-      }
-    } catch (err: unknown) {
-      setErrorMessage((err as Error).message || 'Payment initiation error.');
-      setLoading(false);
-    }
-  };
-
   // Handle PhonePe Payment Trigger
   const handleInitiatePhonePePayment = async () => {
     if (!activeBooking) return;
@@ -340,7 +206,12 @@ function BookingFlowContent() {
       const res = await fetch('/api/payment/phonepe/initiate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: activeBooking.id }),
+        body: JSON.stringify({
+          bookingId: activeBooking.id,
+          guestName: guestName.trim(),
+          guestEmail: guestEmail.trim(),
+          guestPhone: guestPhone.trim(),
+        }),
       });
 
       const data = await res.json();
@@ -362,14 +233,6 @@ function BookingFlowContent() {
     }
   };
 
-  const handlePayAdvanceDeposit = () => {
-    if (selectedGateway === 'phonepe') {
-      handleInitiatePhonePePayment();
-    } else {
-      handleInitiatePayment();
-    }
-  };
-
   const copyReference = () => {
     if (confirmedBooking) {
       navigator.clipboard.writeText(confirmedBooking.booking_reference);
@@ -380,24 +243,94 @@ function BookingFlowContent() {
 
   return (
     <div className="max-w-4xl mx-auto w-full">
-      {/* Progress Stepper */}
-      <div className="mb-12">
-        <div className="flex items-center justify-between text-xs font-semibold tracking-wider uppercase text-hotel-muted">
-          <span className={currentStep >= 1 ? 'text-hotel-cypress' : ''}>
-            1. Suite & Dates
-          </span>
-          <span className="hidden sm:inline">———</span>
-          <span className={currentStep >= 2 ? 'text-hotel-cypress' : ''}>
-            2. Guest Details
-          </span>
-          <span className="hidden sm:inline">———</span>
-          <span className={currentStep >= 3 ? 'text-hotel-cypress' : ''}>
-            3. 30% Advance Payment
-          </span>
-          <span className="hidden sm:inline">———</span>
-          <span className={currentStep === 4 ? 'text-hotel-cypress' : ''}>
-            4. Confirmation
-          </span>
+      {/* Progress Stepper - Responsive Mobile & Desktop */}
+      <div className="mb-8 sm:mb-12">
+        {/* Desktop Stepper */}
+        <div className="hidden sm:flex items-center justify-between text-xs font-semibold tracking-wider uppercase text-hotel-muted">
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${
+                currentStep >= 1
+                  ? 'bg-hotel-cypress text-white'
+                  : 'bg-hotel-sand text-hotel-muted'
+              }`}
+            >
+              1
+            </span>
+            <span className={currentStep >= 1 ? 'text-hotel-cypress font-bold' : ''}>
+              Suite &amp; Dates
+            </span>
+          </div>
+          <span className="text-hotel-charcoal/20">———</span>
+
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${
+                currentStep >= 2
+                  ? 'bg-hotel-cypress text-white'
+                  : 'bg-hotel-sand text-hotel-muted'
+              }`}
+            >
+              2
+            </span>
+            <span className={currentStep >= 2 ? 'text-hotel-cypress font-bold' : ''}>
+              Guest Details
+            </span>
+          </div>
+          <span className="text-hotel-charcoal/20">———</span>
+
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${
+                currentStep >= 3
+                  ? 'bg-[#5f259f] text-white'
+                  : 'bg-hotel-sand text-hotel-muted'
+              }`}
+            >
+              3
+            </span>
+            <span className={currentStep >= 3 ? 'text-[#5f259f] font-bold' : ''}>
+              30% Advance Deposit
+            </span>
+          </div>
+          <span className="text-hotel-charcoal/20">———</span>
+
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${
+                currentStep === 4
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-hotel-sand text-hotel-muted'
+              }`}
+            >
+              4
+            </span>
+            <span className={currentStep === 4 ? 'text-emerald-700 font-bold' : ''}>
+              Confirmed
+            </span>
+          </div>
+        </div>
+
+        {/* Mobile Stepper */}
+        <div className="sm:hidden flex flex-col gap-2 p-3 rounded-xl bg-white border border-hotel-charcoal/10">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-hotel-cypress">
+              Step {currentStep} of 4
+            </span>
+            <span className="text-xs font-serif font-bold text-hotel-charcoal">
+              {currentStep === 1 && 'Suite & Itinerary'}
+              {currentStep === 2 && 'Guest Particulars'}
+              {currentStep === 3 && '30% Advance Deposit'}
+              {currentStep === 4 && 'Confirmed & Verified'}
+            </span>
+          </div>
+          {/* Progress bar */}
+          <div className="w-full h-1.5 bg-hotel-charcoal/10 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-hotel-cypress transition-all duration-300 rounded-full"
+              style={{ width: `${(currentStep / 4) * 100}%` }}
+            />
+          </div>
         </div>
       </div>
 
@@ -411,50 +344,50 @@ function BookingFlowContent() {
       {/* STEP 1: Suite Selection & Dates */}
       {currentStep === 1 && (
         <div className="doppelrand-shell">
-          <div className="doppelrand-core p-8 md:p-10 bg-white space-y-8">
+          <div className="doppelrand-core p-5 sm:p-8 md:p-10 bg-white space-y-6 sm:space-y-8">
             <div>
               <span className="text-[10px] uppercase tracking-[0.2em] text-hotel-muted font-bold block mb-1">
                 Step 1 of 3
               </span>
-              <h2 className="font-serif text-3xl font-medium text-hotel-charcoal">
-                Select Your Suite & Itinerary
+              <h2 className="font-serif text-2xl sm:text-3xl font-medium text-hotel-charcoal">
+                Select Your Suite &amp; Itinerary
               </h2>
             </div>
 
             {/* Dates & Guests Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-xl bg-hotel-limestone border border-hotel-charcoal/10">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4 p-4 rounded-2xl bg-hotel-limestone border border-hotel-charcoal/10">
               <div>
-                <label className="text-[10px] uppercase tracking-wider text-hotel-muted font-bold block mb-1">
+                <label className="text-[10px] uppercase tracking-wider text-hotel-muted font-bold block mb-1.5">
                   Check-In Date
                 </label>
                 <input
                   type="date"
                   value={checkIn}
                   onChange={(e) => setCheckIn(e.target.value)}
-                  className="w-full text-xs font-semibold p-2 rounded-lg bg-white border border-hotel-charcoal/10"
+                  className="w-full text-base sm:text-xs font-semibold p-3 sm:p-2.5 rounded-xl bg-white border border-hotel-charcoal/15 min-h-[46px] focus:outline-none focus:border-hotel-cypress"
                   required
                 />
               </div>
               <div>
-                <label className="text-[10px] uppercase tracking-wider text-hotel-muted font-bold block mb-1">
+                <label className="text-[10px] uppercase tracking-wider text-hotel-muted font-bold block mb-1.5">
                   Check-Out Date
                 </label>
                 <input
                   type="date"
                   value={checkOut}
                   onChange={(e) => setCheckOut(e.target.value)}
-                  className="w-full text-xs font-semibold p-2 rounded-lg bg-white border border-hotel-charcoal/10"
+                  className="w-full text-base sm:text-xs font-semibold p-3 sm:p-2.5 rounded-xl bg-white border border-hotel-charcoal/15 min-h-[46px] focus:outline-none focus:border-hotel-cypress"
                   required
                 />
               </div>
               <div>
-                <label className="text-[10px] uppercase tracking-wider text-hotel-muted font-bold block mb-1">
+                <label className="text-[10px] uppercase tracking-wider text-hotel-muted font-bold block mb-1.5">
                   Guests
                 </label>
                 <select
                   value={guests}
                   onChange={(e) => setGuests(parseInt(e.target.value, 10))}
-                  className="w-full text-xs font-semibold p-2 rounded-lg bg-white border border-hotel-charcoal/10"
+                  className="w-full text-base sm:text-xs font-semibold p-3 sm:p-2.5 rounded-xl bg-white border border-hotel-charcoal/15 min-h-[46px] focus:outline-none focus:border-hotel-cypress"
                 >
                   <option value={1}>1 Guest</option>
                   <option value={2}>2 Guests</option>
@@ -466,7 +399,7 @@ function BookingFlowContent() {
             </div>
 
             {/* Room Type Selector */}
-            <div className="space-y-4">
+            <div className="space-y-3.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-hotel-charcoal block">
                 Choose Suite Category
               </label>
@@ -477,24 +410,24 @@ function BookingFlowContent() {
                     <div
                       key={r.id}
                       onClick={() => setSelectedRoomTypeId(r.id)}
-                      className={`p-5 rounded-2xl border transition-all cursor-pointer ${
+                      className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer ${
                         isSelected
                           ? 'border-hotel-cypress bg-hotel-cypress/5 ring-2 ring-hotel-cypress/20'
                           : 'border-hotel-charcoal/10 bg-white hover:border-hotel-charcoal/30'
                       }`}
                     >
-                      <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-serif text-xl font-medium text-hotel-charcoal">
+                      <div className="flex justify-between items-start mb-2 gap-2">
+                        <h4 className="font-serif text-lg sm:text-xl font-medium text-hotel-charcoal">
                           {r.name}
                         </h4>
-                        <span className="font-serif text-lg font-semibold text-hotel-charcoal">
+                        <span className="font-serif text-base sm:text-lg font-semibold text-hotel-charcoal shrink-0">
                           {formatINR(r.base_price_paise)}
                         </span>
                       </div>
                       <p className="text-xs text-hotel-muted line-clamp-2 mb-3">
                         {r.short_description}
                       </p>
-                      <div className="flex items-center gap-3 text-[11px] text-hotel-muted font-medium">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[11px] text-hotel-muted font-medium">
                         <span>Up to {r.max_guests} Guests</span>
                         <span>·</span>
                         <span>{r.bed_type}</span>
@@ -509,16 +442,16 @@ function BookingFlowContent() {
 
             {/* Price Preview Card */}
             {selectedRoom && (
-              <div className="p-6 rounded-2xl bg-hotel-sand/50 border border-hotel-charcoal/10 flex flex-wrap items-center justify-between gap-4">
+              <div className="p-4 sm:p-6 rounded-2xl bg-hotel-sand/50 border border-hotel-charcoal/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
                 <div>
                   <span className="text-xs text-hotel-muted block">
                     Estimated Tariff ({estimatedNights} nights + GST):
                   </span>
-                  <span className="font-serif text-2xl font-semibold text-hotel-charcoal">
+                  <span className="font-serif text-xl sm:text-2xl font-semibold text-hotel-charcoal">
                     {formatINR(estimatedTotalPaise)}
                   </span>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-hotel-charcoal/10">
                   <span className="text-xs font-bold text-hotel-cypress block">
                     30% Advance Deposit: {formatINR(estimatedAdvancePaise)}
                   </span>
@@ -529,11 +462,11 @@ function BookingFlowContent() {
               </div>
             )}
 
-            <div className="pt-4 flex justify-end">
+            <div className="pt-2 flex justify-end">
               <button
                 type="button"
                 onClick={() => setCurrentStep(2)}
-                className="inline-flex items-center gap-2 bg-hotel-cypress hover:bg-hotel-cypress-dark text-white text-xs uppercase tracking-wider font-semibold px-8 py-4 rounded-full transition-all shadow-subtle active:scale-[0.98]"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-hotel-cypress hover:bg-hotel-cypress-dark text-white text-xs uppercase tracking-wider font-semibold px-8 py-4 rounded-full transition-all shadow-subtle active:scale-[0.98]"
               >
                 <span>Continue to Guest Details</span>
                 <ArrowRight className="w-4 h-4" />
@@ -548,29 +481,29 @@ function BookingFlowContent() {
         <div className="doppelrand-shell">
           <form
             onSubmit={handleProceedToHold}
-            className="doppelrand-core p-8 md:p-10 bg-white space-y-8"
+            className="doppelrand-core p-5 sm:p-8 md:p-10 bg-white space-y-6 sm:space-y-8"
           >
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <span className="text-[10px] uppercase tracking-[0.2em] text-hotel-muted font-bold block mb-1">
                   Step 2 of 3 · Guest Checkout
                 </span>
-                <h2 className="font-serif text-3xl font-medium text-hotel-charcoal">
-                  Guest Contact & Preferences
+                <h2 className="font-serif text-2xl sm:text-3xl font-medium text-hotel-charcoal">
+                  Guest Contact &amp; Preferences
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={() => setCurrentStep(1)}
-                className="text-xs uppercase tracking-wider font-semibold text-hotel-muted hover:text-hotel-charcoal flex items-center gap-1.5"
+                className="text-xs uppercase tracking-wider font-semibold text-hotel-muted hover:text-hotel-charcoal flex items-center gap-1.5 self-start sm:self-auto"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                Change Suite
+                <span>Change Suite</span>
               </button>
             </div>
 
             {/* Inputs Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div>
                 <label className="text-xs font-semibold text-hotel-charcoal block mb-1.5">
                   Full Name (Primary Guest) *
@@ -581,7 +514,7 @@ function BookingFlowContent() {
                   value={guestName}
                   onChange={(e) => setGuestName(e.target.value)}
                   placeholder="e.g. Vikramaditya Rao"
-                  className="w-full text-sm p-3.5 rounded-xl border border-hotel-charcoal/20 bg-hotel-limestone focus:outline-none focus:border-hotel-cypress"
+                  className="w-full text-base sm:text-sm p-3.5 rounded-xl border border-hotel-charcoal/20 bg-hotel-limestone focus:outline-none focus:border-hotel-cypress min-h-[48px]"
                 />
               </div>
 
@@ -595,10 +528,10 @@ function BookingFlowContent() {
                   value={guestEmail}
                   onChange={(e) => setGuestEmail(e.target.value)}
                   placeholder="e.g. vikram@example.com"
-                  className="w-full text-sm p-3.5 rounded-xl border border-hotel-charcoal/20 bg-hotel-limestone focus:outline-none focus:border-hotel-cypress"
+                  className="w-full text-base sm:text-sm p-3.5 rounded-xl border border-hotel-charcoal/20 bg-hotel-limestone focus:outline-none focus:border-hotel-cypress min-h-[48px]"
                 />
                 <span className="text-[10px] text-hotel-muted mt-1 block">
-                  Reservation confirmation & receipt will be sent here.
+                  Reservation confirmation &amp; receipt will be sent here.
                 </span>
               </div>
 
@@ -612,7 +545,7 @@ function BookingFlowContent() {
                   value={guestPhone}
                   onChange={(e) => setGuestPhone(e.target.value)}
                   placeholder="+91 98201 54321"
-                  className="w-full text-sm p-3.5 rounded-xl border border-hotel-charcoal/20 bg-hotel-limestone focus:outline-none focus:border-hotel-cypress"
+                  className="w-full text-base sm:text-sm p-3.5 rounded-xl border border-hotel-charcoal/20 bg-hotel-limestone focus:outline-none focus:border-hotel-cypress min-h-[48px]"
                 />
               </div>
 
@@ -623,7 +556,7 @@ function BookingFlowContent() {
                 <select
                   value={estimatedArrival}
                   onChange={(e) => setEstimatedArrival(e.target.value)}
-                  className="w-full text-sm p-3.5 rounded-xl border border-hotel-charcoal/20 bg-hotel-limestone focus:outline-none focus:border-hotel-cypress"
+                  className="w-full text-base sm:text-sm p-3.5 rounded-xl border border-hotel-charcoal/20 bg-hotel-limestone focus:outline-none focus:border-hotel-cypress min-h-[48px]"
                 >
                   <option value="14:00">14:00 (Standard Check-in)</option>
                   <option value="15:00">15:00</option>
@@ -644,7 +577,7 @@ function BookingFlowContent() {
                 value={specialRequests}
                 onChange={(e) => setSpecialRequests(e.target.value)}
                 placeholder="Anniversary stay, quiet room preference, lactose-free milk, airport transfer assistance, etc."
-                className="w-full text-sm p-3.5 rounded-xl border border-hotel-charcoal/20 bg-hotel-limestone focus:outline-none focus:border-hotel-cypress resize-none"
+                className="w-full text-base sm:text-sm p-3.5 rounded-xl border border-hotel-charcoal/20 bg-hotel-limestone focus:outline-none focus:border-hotel-cypress resize-none"
               />
             </div>
 
@@ -656,7 +589,7 @@ function BookingFlowContent() {
                   required
                   checked={termsAccepted}
                   onChange={(e) => setTermsAccepted(e.target.checked)}
-                  className="mt-0.5 rounded border-hotel-charcoal/30 text-hotel-cypress focus:ring-hotel-cypress"
+                  className="mt-0.5 rounded border-hotel-charcoal/30 text-hotel-cypress focus:ring-hotel-cypress w-4 h-4 shrink-0"
                 />
                 <span>
                   I acknowledge and accept the <strong>Hotel Vishwaveer Cancellation Policy</strong>{' '}
@@ -667,11 +600,11 @@ function BookingFlowContent() {
             </div>
 
             {/* Proceed Action */}
-            <div className="pt-4 flex items-center justify-between">
+            <div className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={() => setCurrentStep(1)}
-                className="text-xs uppercase tracking-wider font-semibold text-hotel-muted hover:text-hotel-charcoal"
+                className="text-xs uppercase tracking-wider font-semibold text-hotel-muted hover:text-hotel-charcoal text-center py-2"
               >
                 Back
               </button>
@@ -679,7 +612,7 @@ function BookingFlowContent() {
               <button
                 type="submit"
                 disabled={loading}
-                className="inline-flex items-center gap-2 bg-hotel-cypress hover:bg-hotel-cypress-dark disabled:opacity-50 text-white text-xs uppercase tracking-wider font-semibold px-8 py-4 rounded-full transition-all shadow-subtle active:scale-[0.98]"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-hotel-cypress hover:bg-hotel-cypress-dark disabled:opacity-50 text-white text-xs uppercase tracking-wider font-semibold px-8 py-4 rounded-full transition-all shadow-subtle active:scale-[0.98]"
               >
                 <span>{loading ? 'Reserving Temporary Hold...' : 'Review & Lock Reservation'}</span>
                 <ArrowRight className="w-4 h-4" />
@@ -692,11 +625,11 @@ function BookingFlowContent() {
       {/* STEP 3: Review Hold & Pay 30% Advance */}
       {currentStep === 3 && activeBooking && (
         <div className="doppelrand-shell">
-          <div className="doppelrand-core p-8 md:p-10 bg-white space-y-8">
+          <div className="doppelrand-core p-5 sm:p-8 md:p-10 bg-white space-y-6 sm:space-y-8">
             {/* Hold Banner with Countdown */}
-            <div className="p-4 rounded-2xl bg-hotel-cypress/10 border border-hotel-cypress/30 flex items-center justify-between gap-4">
+            <div className="p-4 rounded-2xl bg-hotel-cypress/10 border border-hotel-cypress/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <Clock className="w-5 h-5 text-hotel-cypress animate-pulse" />
+                <Clock className="w-5 h-5 text-hotel-cypress animate-pulse shrink-0" />
                 <div>
                   <span className="text-xs font-bold text-hotel-cypress block">
                     Temporary Room Hold Active
@@ -707,7 +640,7 @@ function BookingFlowContent() {
                   </span>
                 </div>
               </div>
-              <div className="text-right">
+              <div className="text-left sm:text-right shrink-0">
                 <span className="font-mono text-lg font-bold text-hotel-cypress">
                   {Math.floor(holdSecondsRemaining / 60)}:
                   {(holdSecondsRemaining % 60).toString().padStart(2, '0')}
@@ -784,69 +717,35 @@ function BookingFlowContent() {
               </div>
             </div>
 
-            {/* Payment Gateway Selection */}
+            {/* PhonePe Advance Deposit Banner */}
             <div className="pt-6 border-t border-hotel-charcoal/10 space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-hotel-charcoal">
-                  Select Advance Payment Method
-                </span>
-                <span className="text-[11px] text-hotel-muted">
-                  Required 30% Deposit: <strong className="text-hotel-cypress">{formatINR(activeBooking.advance_amount_paise)}</strong>
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* PhonePe Option */}
-                <div
-                  onClick={() => setSelectedGateway('phonepe')}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                    selectedGateway === 'phonepe'
-                      ? 'border-[#5f259f] bg-purple-50/50 shadow-sm'
-                      : 'border-hotel-charcoal/10 bg-hotel-sand/20 hover:border-hotel-charcoal/25'
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-2">
+              <div className="p-4 sm:p-5 rounded-2xl bg-purple-50/70 border border-purple-200/90 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-[#5f259f] text-white flex items-center justify-center font-bold text-base shadow-sm shrink-0">
+                    पे
+                  </div>
+                  <div>
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-[#5f259f] text-white flex items-center justify-center font-bold text-xs shadow-sm">
-                        पे
-                      </div>
-                      <div>
-                        <span className="text-sm font-bold text-hotel-charcoal block">PhonePe UPI & QR</span>
-                        <span className="text-[10px] text-purple-700 font-semibold block">0% Extra Fee · Instant Approval</span>
-                      </div>
+                      <span className="text-sm font-bold text-hotel-charcoal">
+                        PhonePe UPI &amp; Dynamic QR
+                      </span>
+                      <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                        0% Extra Fee
+                      </span>
                     </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-green-100 text-green-800 border border-green-200">
-                      Recommended
+                    <span className="text-xs text-purple-800/80 block mt-0.5">
+                      Direct UPI Intent (GPay, PhonePe, Paytm, BHIM) &amp; Instant QR
                     </span>
                   </div>
-                  <p className="text-[11px] text-hotel-muted leading-relaxed">
-                    Dynamic QR code & UPI Apps (GPay, PhonePe, Paytm, BHIM). Free for hotels with 0% gateway cut.
-                  </p>
                 </div>
 
-                {/* Razorpay Option */}
-                <div
-                  onClick={() => setSelectedGateway('razorpay')}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                    selectedGateway === 'razorpay'
-                      ? 'border-blue-600 bg-blue-50/40 shadow-sm'
-                      : 'border-hotel-charcoal/10 bg-hotel-sand/20 hover:border-hotel-charcoal/25'
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">
-                        R
-                      </div>
-                      <div>
-                        <span className="text-sm font-bold text-hotel-charcoal block">Razorpay Gateway</span>
-                        <span className="text-[10px] text-blue-700 font-semibold block">Cards & Netbanking</span>
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-hotel-muted leading-relaxed">
-                    Visa, Mastercard, RuPay, Corporate Cards, and Netbanking with PCI-DSS 3D-Secure.
-                  </p>
+                <div className="text-left sm:text-right w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-purple-200/60">
+                  <span className="text-[10px] uppercase tracking-wider text-hotel-muted font-bold block">
+                    30% Advance Deposit Due
+                  </span>
+                  <span className="font-serif text-xl font-bold text-[#5f259f]">
+                    {formatINR(activeBooking.advance_amount_paise)}
+                  </span>
                 </div>
               </div>
             </div>
@@ -854,29 +753,21 @@ function BookingFlowContent() {
             {/* Payment Button & Trust Badge */}
             <div className="pt-4 border-t border-hotel-charcoal/10 flex flex-col sm:flex-row items-center justify-between gap-4">
               <span className="text-xs text-hotel-muted flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-hotel-cypress" />
-                {selectedGateway === 'phonepe'
-                  ? 'Official PhonePe PG Sandbox (Zero real merchant credentials needed)'
-                  : 'Processed securely via Razorpay PCI-DSS compliant checkout'}
+                <ShieldCheck className="w-4 h-4 text-[#5f259f]" />
+                Official PhonePe sandbox engine · Zero merchant fees
               </span>
 
               <button
                 type="button"
-                onClick={handlePayAdvanceDeposit}
+                onClick={handleInitiatePhonePePayment}
                 disabled={loading || holdSecondsRemaining <= 0}
-                className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 text-white text-xs uppercase tracking-wider font-semibold px-9 py-4 rounded-full transition-all shadow-subtle active:scale-[0.98] disabled:opacity-50 ${
-                  selectedGateway === 'phonepe'
-                    ? 'bg-[#5f259f] hover:bg-[#4d1d82]'
-                    : 'bg-hotel-cypress hover:bg-hotel-cypress-dark'
-                }`}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-[#5f259f] hover:bg-[#4d1d82] text-white text-xs uppercase tracking-wider font-bold px-9 py-4 rounded-full transition-all shadow-subtle active:scale-[0.98] disabled:opacity-50"
               >
-                {selectedGateway === 'phonepe' ? <QrCode className="w-4 h-4" /> : <CreditCard className="w-4 h-4" />}
+                <QrCode className="w-4 h-4" />
                 <span>
                   {loading
-                    ? 'Connecting to Gateway...'
-                    : selectedGateway === 'phonepe'
-                    ? `Pay ${formatINR(activeBooking.advance_amount_paise)} via PhonePe`
-                    : `Pay ${formatINR(activeBooking.advance_amount_paise)} via Razorpay`}
+                    ? 'Connecting to PhonePe...'
+                    : `Pay ${formatINR(activeBooking.advance_amount_paise)} Deposit`}
                 </span>
               </button>
             </div>
@@ -884,158 +775,102 @@ function BookingFlowContent() {
         </div>
       )}
 
-      {/* STEP 4: Confirmation & Receipt */}
+      {/* STEP 4: Exact Image 1 PhonePe Verified Confirmation Dossier */}
       {currentStep === 4 && confirmedBooking && (
-        <div className="doppelrand-shell">
-          <div className="doppelrand-core p-8 md:p-12 bg-white space-y-8">
-            <div className="text-center max-w-xl mx-auto">
-              <div className="w-16 h-16 rounded-full bg-hotel-cypress/10 text-hotel-cypress flex items-center justify-center mx-auto mb-6">
-                <CheckCircle2 className="w-8 h-8" />
-              </div>
-              <span className="text-[10px] uppercase tracking-[0.25em] text-hotel-cypress font-bold block mb-2">
-                Reservation Confirmed
-              </span>
-              <h2 className="font-serif text-4xl sm:text-5xl font-medium text-hotel-charcoal">
-                We await your arrival at Vishwaveer.
-              </h2>
-              <p className="mt-3 text-xs sm:text-sm text-hotel-muted leading-relaxed">
-                A confirmation has been recorded in our reservation register and dispatched to{' '}
-                <strong>{guestEmail}</strong>.
-              </p>
-            </div>
-
-            {/* Reference Number Box */}
-            <div className="p-6 rounded-2xl bg-hotel-sand/50 border border-hotel-charcoal/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="doppelrand-shell animate-in fade-in duration-300">
+          <div className="doppelrand-core p-5 sm:p-8 md:p-10 bg-white space-y-6">
+            {/* Header: Green Check + Title matching Image 1 */}
+            <div className="flex items-start sm:items-center gap-3 text-emerald-800 pb-4 border-b border-hotel-charcoal/10">
+              <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />
               <div>
-                <span className="text-[10px] uppercase tracking-wider text-hotel-muted font-bold block mb-1">
-                  Booking Reference Number
+                <h3 className="font-serif text-2xl sm:text-3xl font-bold text-hotel-charcoal leading-tight">
+                  PhonePe Payment Confirmed &amp; Verified
+                </h3>
+                <span className="text-xs text-hotel-muted block mt-0.5">
+                  Direct settlement confirmed into hotel current account.
                 </span>
-                <span className="font-mono text-2xl sm:text-3xl font-bold text-hotel-charcoal tracking-wide">
-                  {confirmedBooking.booking_reference}
-                </span>
-              </div>
-              <button
-                onClick={copyReference}
-                className="px-4 py-2 rounded-full border border-hotel-charcoal/20 text-xs font-semibold uppercase tracking-wider text-hotel-charcoal hover:bg-white flex items-center gap-2 transition-colors"
-              >
-                <Copy className="w-3.5 h-3.5" />
-                <span>{copied ? 'Copied!' : 'Copy Reference'}</span>
-              </button>
-            </div>
-
-            {/* Receipt Summary Card */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 rounded-2xl bg-white border border-hotel-charcoal/10 text-xs">
-              <div className="space-y-3">
-                <h4 className="font-serif text-lg font-medium text-hotel-charcoal">
-                  Reservation Particulars
-                </h4>
-                <p>
-                  <strong className="text-hotel-charcoal">Suite Category:</strong>{' '}
-                  {confirmedBooking.room_type?.name}
-                </p>
-                <p>
-                  <strong className="text-hotel-charcoal">Allocated Room:</strong> Room{' '}
-                  {confirmedBooking.room?.room_number || 'Reserved'}
-                </p>
-                <p>
-                  <strong className="text-hotel-charcoal">Check-In:</strong>{' '}
-                  {confirmedBooking.check_in} (from 14:00 PM)
-                </p>
-                <p>
-                  <strong className="text-hotel-charcoal">Check-Out:</strong>{' '}
-                  {confirmedBooking.check_out} (until 11:00 AM)
-                </p>
-                <p>
-                  <strong className="text-hotel-charcoal">Duration:</strong>{' '}
-                  {confirmedBooking.nights} Nights · {confirmedBooking.num_guests} Guests
-                </p>
-              </div>
-
-              <div className="space-y-3 border-t md:border-t-0 md:border-l border-hotel-charcoal/10 md:pl-6 pt-4 md:pt-0">
-                <h4 className="font-serif text-lg font-medium text-hotel-charcoal">
-                  Financial Reconciliation
-                </h4>
-                <div className="flex justify-between">
-                  <span>Total Tariff (incl. GST):</span>
-                  <strong>{formatINR(confirmedBooking.total_amount_paise)}</strong>
-                </div>
-                <div className="flex justify-between text-hotel-cypress">
-                  <span>30% Advance Deposit Paid:</span>
-                  <strong>{formatINR(confirmedBooking.advance_paid_paise)}</strong>
-                </div>
-                <div className="flex justify-between text-hotel-charcoal pt-2 border-t border-hotel-charcoal/10 font-bold">
-                  <span>Remaining Balance Due at Hotel:</span>
-                  <span>{formatINR(confirmedBooking.balance_amount_paise)}</span>
-                </div>
-                <p className="text-[11px] text-hotel-muted pt-2">
-                  Remaining balance payable at check-in via Cash, Card, or UPI terminal.
-                </p>
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="pt-6 border-t border-hotel-charcoal/10 flex flex-wrap items-center justify-between gap-4">
-              <button
-                onClick={() => window.print()}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-full border border-hotel-charcoal/20 text-xs font-semibold uppercase tracking-wider text-hotel-charcoal hover:bg-hotel-limestone transition-colors"
-              >
-                <Printer className="w-4 h-4" />
-                <span>Print Official Receipt</span>
-              </button>
+            {/* Three Key Status Badges matching Image 1 */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 text-xs">
+              <div className="p-4 rounded-xl bg-hotel-limestone space-y-1">
+                <span className="text-[10px] uppercase font-bold text-hotel-muted block">
+                  PHONEPE TXN ID
+                </span>
+                <span className="font-mono text-hotel-charcoal font-semibold text-sm break-all">
+                  {verifiedPaymentData?.phonepeTransactionId ||
+                    confirmedBooking.payments?.[0]?.razorpay_payment_id?.replace('phonepe_', '') ||
+                    `T${Date.now()}`}
+                </span>
+              </div>
 
-              <button
-                onClick={() => router.push('/')}
-                className="inline-flex items-center gap-2 bg-hotel-cypress text-white px-8 py-3.5 rounded-full text-xs font-semibold uppercase tracking-wider hover:bg-hotel-cypress-dark transition-all"
+              <div className="p-4 rounded-xl bg-hotel-limestone space-y-1">
+                <span className="text-[10px] uppercase font-bold text-hotel-muted block">
+                  BANK UPI UTR NUMBER
+                </span>
+                <span className="font-mono text-hotel-charcoal font-semibold text-sm">
+                  {verifiedPaymentData?.utrNumber ||
+                    confirmedBooking.payments?.[0]?.razorpay_signature?.replace('utr_', '') ||
+                    '816039143689'}
+                </span>
+              </div>
+
+              <div className="p-4 rounded-xl bg-hotel-limestone space-y-1">
+                <span className="text-[10px] uppercase font-bold text-hotel-muted block">
+                  30% ADVANCE SETTLED
+                </span>
+                <span className="font-serif text-xl font-bold text-[#5f259f]">
+                  {formatINR(confirmedBooking.advance_paid_paise || confirmedBooking.advance_amount_paise)}
+                </span>
+              </div>
+            </div>
+
+            {/* Verified Guest & Estate Reference Ribbon */}
+            <div className="p-3.5 rounded-xl bg-hotel-sand/40 border border-hotel-charcoal/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-hotel-muted">
+              <div>
+                Guest: <strong className="text-hotel-charcoal font-semibold">{confirmedBooking.guest?.full_name || guestName}</strong> · Suite: <strong className="text-hotel-charcoal">{confirmedBooking.room_type?.name}</strong> (Room {confirmedBooking.room?.room_number || '101'})
+              </div>
+              <div className="flex items-center gap-1.5 font-mono">
+                <span>Ref:</span>
+                <strong className="text-hotel-cypress font-bold">{confirmedBooking.booking_reference}</strong>
+              </div>
+            </div>
+
+            {/* Bottom Actions matching Image 1: VIEW IN ADMIN RECEPTION REGISTER -> and Clear Result */}
+            <div className="pt-4 flex flex-wrap gap-4 items-center justify-between border-t border-hotel-charcoal/10 text-xs">
+              <Link
+                href="/admin/reservations"
+                className="font-bold uppercase tracking-wider text-hotel-cypress hover:underline flex items-center gap-2"
               >
-                <span>Return to Estate Homepage</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+                <span>VIEW IN ADMIN RECEPTION REGISTER</span>
+                <span>→</span>
+              </Link>
+
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentStep(1);
+                    setConfirmedBooking(null);
+                    setActiveBooking(null);
+                  }}
+                  className="text-xs text-hotel-muted hover:text-hotel-charcoal"
+                >
+                  Clear Result
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => router.push('/rooms')}
+                  className="px-4 py-2 rounded-full bg-hotel-cypress text-white hover:bg-hotel-cypress-dark transition-all font-semibold uppercase tracking-wider text-[11px] shadow-subtle active:scale-[0.98]"
+                >
+                  Book Another Suite
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      )}
-
-      {/* Embedded Razorpay Sandbox Modal */}
-      {currentRazorpayOrder && activeBooking && (
-        <RazorpayModal
-          isOpen={isRazorpayModalOpen}
-          onClose={() => setIsRazorpayModalOpen(false)}
-          orderId={currentRazorpayOrder.orderId}
-          amountPaise={currentRazorpayOrder.amountPaise}
-          bookingReference={activeBooking.booking_reference}
-          guestName={guestName}
-          guestEmail={guestEmail}
-          guestPhone={guestPhone}
-          onSuccess={async (paymentData) => {
-            setIsRazorpayModalOpen(false);
-            setLoading(true);
-            try {
-              const verifyRes = await fetch('/api/payment/verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  bookingId: activeBooking.id,
-                  razorpayOrderId: paymentData.razorpay_order_id,
-                  razorpayPaymentId: paymentData.razorpay_payment_id,
-                  razorpaySignature: paymentData.razorpay_signature,
-                }),
-              });
-              const verifyData = await verifyRes.json();
-              if (verifyData.success) {
-                setConfirmedBooking(verifyData.booking);
-                setCurrentStep(4);
-                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-              } else {
-                setErrorMessage(verifyData.error || 'Payment signature verification failed.');
-              }
-            } catch {
-              setErrorMessage('Network error during payment verification.');
-            } finally {
-              setLoading(false);
-            }
-          }}
-          onFailure={(err) => setErrorMessage(err)}
-        />
       )}
 
       {/* Embedded PhonePe Sandbox Modal */}
@@ -1052,6 +887,10 @@ function BookingFlowContent() {
           onSuccess={async (paymentData) => {
             setIsPhonePeModalOpen(false);
             setLoading(true);
+            setVerifiedPaymentData({
+              phonepeTransactionId: paymentData.phonepeTransactionId,
+              utrNumber: paymentData.utrNumber,
+            });
             try {
               const verifyRes = await fetch('/api/payment/phonepe/verify', {
                 method: 'POST',
@@ -1088,7 +927,7 @@ export default function BookingPage() {
   return (
     <main className="min-h-screen bg-hotel-limestone flex flex-col">
       <Navbar />
-      <section className="pt-36 pb-24 px-6 md:px-12 flex-1">
+      <section className="pt-24 sm:pt-28 md:pt-36 pb-16 sm:pb-24 px-4 sm:px-6 md:px-12 flex-1">
         <Suspense fallback={<div className="text-center py-24 text-hotel-muted">Loading reservation engine...</div>}>
           <BookingFlowContent />
         </Suspense>

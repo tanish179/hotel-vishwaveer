@@ -41,6 +41,7 @@ export default function PhonePeDemoPage() {
     verifiedAt: string;
   } | null>(null);
 
+  const [activeBookingId, setActiveBookingId] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -53,11 +54,32 @@ export default function PhonePeDemoPage() {
     const mockRef = `VWV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     try {
+      // 1. Create real booking hold in database with user's exact name
+      const holdRes = await fetch('/api/booking/hold', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomTypeId: '11111111-1111-1111-1111-111111111101',
+          checkIn: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
+          checkOut: new Date(Date.now() + 86400000 * 4).toISOString().split('T')[0],
+          guestName: guestName.trim() || 'Verified Guest',
+          guestEmail: guestEmail.trim() || 'guest@example.com',
+          guestPhone: guestPhone.trim() || '+91 98201 54321',
+          numGuests: 2,
+        }),
+      });
+      const holdData = await holdRes.json();
+      const realBookingId = holdData.success ? holdData.booking.id : '44444444-4444-4444-4444-444444444001';
+      setActiveBookingId(realBookingId);
+
       const res = await fetch('/api/payment/phonepe/initiate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          bookingId: '44444444-4444-4444-4444-444444444001', // existing demo booking
+          bookingId: realBookingId,
+          guestName: guestName.trim(),
+          guestEmail: guestEmail.trim(),
+          guestPhone: guestPhone.trim(),
         }),
       });
 
@@ -105,7 +127,7 @@ export default function PhonePeDemoPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          bookingId: '44444444-4444-4444-4444-444444444001',
+          bookingId: activeBookingId || '44444444-4444-4444-4444-444444444001',
           merchantTransactionId: paymentData.merchantTransactionId,
           phonepeTransactionId: paymentData.phonepeTransactionId,
           utrNumber: paymentData.utrNumber,

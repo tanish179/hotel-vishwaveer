@@ -163,21 +163,21 @@ function ReservationsContent() {
   };
 
   return (
-    <div className="p-6 md:p-12 max-w-7xl mx-auto space-y-8">
+    <div className="p-4 sm:p-6 md:p-12 max-w-7xl mx-auto space-y-6 sm:space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <span className="text-[10px] uppercase tracking-widest text-hotel-muted font-bold block mb-1">
             Reception Register
           </span>
-          <h1 className="font-serif text-3xl font-medium text-hotel-charcoal">
+          <h1 className="font-serif text-2xl sm:text-3xl font-medium text-hotel-charcoal">
             Reservation Management
           </h1>
         </div>
 
         <button
           onClick={() => setWalkInOpen(true)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-hotel-cypress hover:bg-hotel-cypress-dark text-white text-xs font-semibold uppercase tracking-wider transition-colors shadow-subtle"
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-hotel-cypress hover:bg-hotel-cypress-dark text-white text-xs font-semibold uppercase tracking-wider transition-colors shadow-subtle min-h-[44px]"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Record Walk-In Guest</span>
@@ -185,16 +185,16 @@ function ReservationsContent() {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="p-4 rounded-2xl bg-white border border-hotel-charcoal/10 flex flex-wrap items-center justify-between gap-4">
-        <div className="relative flex-1 min-w-[240px]">
+      <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-hotel-charcoal/10 flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+        <div className="relative flex-1 min-w-[220px]">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by reference, guest name, email, phone, room number..."
-            className="w-full text-xs p-3 pl-9 rounded-xl border border-hotel-charcoal/15 bg-hotel-limestone focus:outline-none"
+            placeholder="Search reference, guest name, phone, room..."
+            className="w-full text-base sm:text-xs p-3 pl-9 rounded-xl border border-hotel-charcoal/15 bg-hotel-limestone focus:outline-none min-h-[44px]"
           />
-          <Search className="w-4 h-4 text-hotel-muted absolute left-3 top-3" />
+          <Search className="w-4 h-4 text-hotel-muted absolute left-3 top-3.5" />
         </div>
 
         {/* Status Pills */}
@@ -217,122 +217,217 @@ function ReservationsContent() {
         </div>
       </div>
 
-      {/* Main Table */}
+      {/* Main Table Container */}
       <div className="doppelrand-shell">
-        <div className="doppelrand-core p-6 bg-white overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-hotel-charcoal/10 text-hotel-muted uppercase tracking-wider text-[10px] font-bold">
-              <tr>
-                <th className="py-3 px-2">Ref</th>
-                <th className="py-3 px-2">Guest Particulars</th>
-                <th className="py-3 px-2">Allocated Room</th>
-                <th className="py-3 px-2">Dates</th>
-                <th className="py-3 px-2">Tariff</th>
-                <th className="py-3 px-2">30% Advance</th>
-                <th className="py-3 px-2">Balance Due</th>
-                <th className="py-3 px-2">Status</th>
-                <th className="py-3 px-2 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-hotel-charcoal/5">
-              {loading ? (
+        <div className="doppelrand-core p-4 sm:p-6 bg-white">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-hotel-charcoal/10 text-hotel-muted uppercase tracking-wider text-[10px] font-bold">
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-hotel-muted">
-                    Loading reservation register...
-                  </td>
+                  <th className="py-3 px-2">Ref</th>
+                  <th className="py-3 px-2">Guest Particulars</th>
+                  <th className="py-3 px-2">Allocated Room</th>
+                  <th className="py-3 px-2">Dates</th>
+                  <th className="py-3 px-2">Tariff</th>
+                  <th className="py-3 px-2">30% Advance</th>
+                  <th className="py-3 px-2">Balance Due</th>
+                  <th className="py-3 px-2">Status</th>
+                  <th className="py-3 px-2 text-right">Action</th>
                 </tr>
-              ) : bookings.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="py-12 text-center text-hotel-muted">
-                    No reservations matching current criteria.
-                  </td>
-                </tr>
-              ) : (
-                bookings.map((b) => (
-                  <tr
-                    key={b.id}
-                    onClick={() => {
-                      setSelectedBooking(b);
-                      setOfflineAmountPaise(b.balance_amount_paise);
-                    }}
-                    className="hover:bg-hotel-sand/40 transition-colors cursor-pointer"
-                  >
-                    <td className="py-4 px-2 font-mono font-bold text-hotel-charcoal">
+              </thead>
+              <tbody className="divide-y divide-hotel-charcoal/5">
+                {loading ? (
+                  <tr>
+                    <td colSpan={9} className="py-12 text-center text-hotel-muted">
+                      Loading reservation register...
+                    </td>
+                  </tr>
+                ) : bookings.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-12 text-center text-hotel-muted">
+                      No reservations matching current criteria.
+                    </td>
+                  </tr>
+                ) : (
+                  bookings.map((b) => (
+                    <tr
+                      key={b.id}
+                      onClick={() => {
+                        setSelectedBooking(b);
+                        setOfflineAmountPaise(b.balance_amount_paise);
+                      }}
+                      className="hover:bg-hotel-sand/40 transition-colors cursor-pointer"
+                    >
+                      <td className="py-4 px-2 font-mono font-bold text-hotel-charcoal">
+                        {b.booking_reference}
+                      </td>
+                      <td className="py-4 px-2">
+                        <strong className="text-hotel-charcoal block">{b.guest?.full_name || 'Guest'}</strong>
+                        <span className="text-[10px] text-hotel-muted">
+                          {b.guest?.phone} · {b.guest?.email}
+                        </span>
+                      </td>
+                      <td className="py-4 px-2">
+                        <span className="font-semibold text-hotel-charcoal block">
+                          Room {b.room?.room_number || 'TBD'}
+                        </span>
+                        <span className="text-[10px] text-hotel-muted">{b.room_type?.name}</span>
+                      </td>
+                      <td className="py-4 px-2">
+                        <span>
+                          {b.check_in} → {b.check_out}
+                        </span>
+                        <span className="text-[10px] text-hotel-muted block">
+                          {b.nights} {b.nights === 1 ? 'Night' : 'Nights'}
+                        </span>
+                      </td>
+                      <td className="py-4 px-2 font-medium text-hotel-charcoal">
+                        {formatINR(b.total_amount_paise)}
+                      </td>
+                      <td className="py-4 px-2 text-hotel-cypress font-semibold">
+                        {formatINR(b.advance_paid_paise)}
+                      </td>
+                      <td className="py-4 px-2 font-medium text-hotel-charcoal">
+                        {formatINR(b.balance_amount_paise)}
+                      </td>
+                      <td className="py-4 px-2">
+                        {b.status === 'confirmed' && (
+                          <span className="px-2.5 py-1 rounded-full bg-hotel-cypress/10 text-hotel-cypress font-semibold text-[10px] uppercase">
+                            Confirmed
+                          </span>
+                        )}
+                        {b.status === 'checked_in' && (
+                          <span className="px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 font-semibold text-[10px] uppercase">
+                            In-House
+                          </span>
+                        )}
+                        {b.status === 'checked_out' && (
+                          <span className="px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 font-semibold text-[10px] uppercase">
+                            Departed
+                          </span>
+                        )}
+                        {b.status === 'held' && (
+                          <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-semibold text-[10px] uppercase">
+                            Hold (15m)
+                          </span>
+                        )}
+                        {b.status === 'cancelled' && (
+                          <span className="px-2.5 py-1 rounded-full bg-red-100 text-red-800 font-semibold text-[10px] uppercase">
+                            Cancelled
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-4 px-2 text-right">
+                        <span className="text-hotel-cypress font-semibold text-xs flex items-center justify-end gap-1">
+                          Manage <ChevronRight className="w-3.5 h-3.5" />
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Reservation Cards View */}
+          <div className="md:hidden space-y-3">
+            {loading ? (
+              <div className="py-12 text-center text-hotel-muted text-xs">
+                Loading reservation register...
+              </div>
+            ) : bookings.length === 0 ? (
+              <div className="py-12 text-center text-hotel-muted text-xs">
+                No reservations matching criteria.
+              </div>
+            ) : (
+              bookings.map((b) => (
+                <div
+                  key={b.id}
+                  onClick={() => {
+                    setSelectedBooking(b);
+                    setOfflineAmountPaise(b.balance_amount_paise);
+                  }}
+                  className="p-4 rounded-xl border border-hotel-charcoal/10 bg-white hover:bg-hotel-sand/30 transition-all cursor-pointer space-y-3 shadow-sm active:scale-[0.99]"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-bold text-hotel-cypress text-sm">
                       {b.booking_reference}
-                    </td>
-                    <td className="py-4 px-2">
-                      <strong className="text-hotel-charcoal block">{b.guest?.full_name}</strong>
-                      <span className="text-[10px] text-hotel-muted">
-                        {b.guest?.phone} · {b.guest?.email}
-                      </span>
-                    </td>
-                    <td className="py-4 px-2">
-                      <span className="font-semibold text-hotel-charcoal block">
-                        Room {b.room?.room_number || 'TBD'}
-                      </span>
-                      <span className="text-[10px] text-hotel-muted">{b.room_type?.name}</span>
-                    </td>
-                    <td className="py-4 px-2">
-                      <span>
-                        {b.check_in} → {b.check_out}
-                      </span>
-                      <span className="text-[10px] text-hotel-muted block">
-                        {b.nights} {b.nights === 1 ? 'Night' : 'Nights'}
-                      </span>
-                    </td>
-                    <td className="py-4 px-2 font-medium text-hotel-charcoal">
-                      {formatINR(b.total_amount_paise)}
-                    </td>
-                    <td className="py-4 px-2 text-hotel-cypress font-semibold">
-                      {formatINR(b.advance_paid_paise)}
-                    </td>
-                    <td className="py-4 px-2 font-medium text-hotel-charcoal">
-                      {formatINR(b.balance_amount_paise)}
-                    </td>
-                    <td className="py-4 px-2">
+                    </span>
+                    <div>
                       {b.status === 'confirmed' && (
-                        <span className="px-2.5 py-1 rounded-full bg-hotel-cypress/10 text-hotel-cypress font-semibold text-[10px] uppercase">
+                        <span className="px-2.5 py-0.5 rounded-full bg-hotel-cypress/10 text-hotel-cypress font-semibold text-[10px] uppercase">
                           Confirmed
                         </span>
                       )}
                       {b.status === 'checked_in' && (
-                        <span className="px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 font-semibold text-[10px] uppercase">
+                        <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 font-semibold text-[10px] uppercase">
                           In-House
                         </span>
                       )}
                       {b.status === 'checked_out' && (
-                        <span className="px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 font-semibold text-[10px] uppercase">
+                        <span className="px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-700 font-semibold text-[10px] uppercase">
                           Departed
                         </span>
                       )}
                       {b.status === 'held' && (
-                        <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-semibold text-[10px] uppercase">
+                        <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold text-[10px] uppercase">
                           Hold (15m)
                         </span>
                       )}
                       {b.status === 'cancelled' && (
-                        <span className="px-2.5 py-1 rounded-full bg-red-100 text-red-800 font-semibold text-[10px] uppercase">
+                        <span className="px-2.5 py-0.5 rounded-full bg-red-100 text-red-800 font-semibold text-[10px] uppercase">
                           Cancelled
                         </span>
                       )}
-                    </td>
-                    <td className="py-4 px-2 text-right">
-                      <span className="text-hotel-cypress font-semibold text-xs flex items-center justify-end gap-1">
-                        Manage <ChevronRight className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <strong className="text-hotel-charcoal text-base block">
+                      {b.guest?.full_name || 'Guest'}
+                    </strong>
+                    <span className="text-xs text-hotel-muted block">
+                      {b.guest?.phone} · {b.guest?.email}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-hotel-charcoal/5 text-xs text-hotel-muted">
+                    <div>
+                      <span className="text-[10px] uppercase block font-bold text-hotel-muted">Room</span>
+                      <span className="font-semibold text-hotel-charcoal">
+                        Room {b.room?.room_number || 'TBD'} ({b.room_type?.name})
                       </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase block font-bold text-hotel-muted">Dates</span>
+                      <span className="text-hotel-charcoal">
+                        {b.check_in} → {b.check_out} ({b.nights}N)
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-hotel-charcoal/5 text-xs">
+                    <div>
+                      <span className="text-[10px] text-hotel-muted block">30% Advance Paid</span>
+                      <span className="font-bold text-hotel-cypress">{formatINR(b.advance_paid_paise)}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-hotel-muted block">Balance Due</span>
+                      <span className="font-bold text-hotel-charcoal">{formatINR(b.balance_amount_paise)}</span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
 
       {/* DETAIL DRAWER / MODAL */}
       {selectedBooking && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex justify-end">
-          <div className="w-full max-w-xl bg-white h-full overflow-y-auto p-8 shadow-2xl space-y-6 flex flex-col justify-between animate-in slide-in-from-right duration-300">
+          <div className="w-full max-w-xl bg-white h-full overflow-y-auto p-5 sm:p-8 shadow-2xl space-y-6 flex flex-col justify-between animate-in slide-in-from-right duration-300">
             <div>
               <div className="flex items-center justify-between pb-6 border-b border-hotel-charcoal/10">
                 <div>

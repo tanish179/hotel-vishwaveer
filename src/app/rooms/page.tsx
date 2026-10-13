@@ -68,20 +68,20 @@ export default async function RoomsPage({ searchParams }: RoomsPageProps) {
       <Navbar />
 
       {/* Header Banner */}
-      <section className="pt-36 pb-12 px-6 md:px-12 bg-hotel-sand/40 border-b border-hotel-charcoal/10">
+      <section className="pt-24 sm:pt-28 md:pt-36 pb-10 sm:pb-12 px-4 sm:px-6 md:px-12 bg-hotel-sand/40 border-b border-hotel-charcoal/10">
         <div className="max-w-7xl mx-auto">
-          <span className="text-[10px] uppercase tracking-[0.25em] text-hotel-muted font-bold block mb-3">
-            Individual Inventory & Suites
+          <span className="text-[10px] uppercase tracking-[0.25em] text-hotel-muted font-bold block mb-2 sm:mb-3">
+            Individual Inventory &amp; Suites
           </span>
-          <h1 className="font-serif text-5xl md:text-6xl text-hotel-charcoal font-normal tracking-tight">
-            Accommodations & Residences
+          <h1 className="font-serif text-3xl sm:text-5xl md:text-6xl text-hotel-charcoal font-normal tracking-tight">
+            Accommodations &amp; Residences
           </h1>
-          <p className="mt-4 text-hotel-muted text-base sm:text-lg max-w-[60ch]">
+          <p className="mt-3 sm:mt-4 text-hotel-muted text-sm sm:text-lg max-w-[60ch]">
             Every room at Vishwaveer is an individual architectural sanctum. Explore availability, amenities, and guaranteed direct tariffs.
           </p>
 
           {/* Interactive Date & Filter Bar */}
-          <div className="mt-8">
+          <div className="mt-6 sm:mt-8">
             <BookingSearchBar
               initialCheckIn={checkIn}
               initialCheckOut={checkOut}
@@ -92,7 +92,7 @@ export default async function RoomsPage({ searchParams }: RoomsPageProps) {
       </section>
 
       {/* Listing Grid */}
-      <section className="py-20 px-6 md:px-12 flex-1">
+      <section className="py-10 sm:py-20 px-4 sm:px-6 md:px-12 flex-1">
         <div className="max-w-7xl mx-auto">
           {checkIn && checkOut && (
             <div className="mb-8 p-4 rounded-2xl bg-hotel-sand/60 border border-hotel-charcoal/10 flex flex-wrap items-center justify-between gap-4 text-xs">
