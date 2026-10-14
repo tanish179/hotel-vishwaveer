@@ -45,11 +45,27 @@ export function PhonePeModal({
   onSuccess,
   onFailure,
 }: PhonePeModalProps) {
+  const [activeTab, setActiveTab] = useState<'qr' | 'intent' | 'vpa'>('qr');
+  const [upiVpa, setUpiVpa] = useState('guest@ybl');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [timerSeconds, setTimerSeconds] = useState(300); // 5 mins for QR
+
   const defaultReceiverUpi = process.env.NEXT_PUBLIC_HOTEL_UPI_ID || 'hotelvishwaveer@ybl';
   const [receiverUpi, setReceiverUpi] = useState(defaultReceiverUpi);
   const [isEditingUpi, setIsEditingUpi] = useState(false);
   const [manualUtr, setManualUtr] = useState('');
   const [showManualUtr, setShowManualUtr] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && timerSeconds > 0) {
+      const interval = setInterval(() => {
+        setTimerSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [isOpen, timerSeconds]);
+
+  if (!isOpen) return null;
 
   const amountRupeesFormatted = (amountPaise / 100).toFixed(2);
   const upiPayUrl = `upi://pay?pa=${encodeURIComponent(receiverUpi)}&pn=${encodeURIComponent('Hotel Vishwaveer')}&am=${amountRupeesFormatted}&cu=INR&tn=${encodeURIComponent(bookingReference)}`;
