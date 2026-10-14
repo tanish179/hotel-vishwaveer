@@ -45,27 +45,30 @@ export function PhonePeModal({
   onSuccess,
   onFailure,
 }: PhonePeModalProps) {
-  const [activeTab, setActiveTab] = useState<'qr' | 'intent' | 'vpa'>('qr');
-  const [upiVpa, setUpiVpa] = useState('guest@ybl');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [timerSeconds, setTimerSeconds] = useState(300); // 5 mins for QR
+  const defaultReceiverUpi = process.env.NEXT_PUBLIC_HOTEL_UPI_ID || 'hotelvishwaveer@ybl';
+  const [receiverUpi, setReceiverUpi] = useState(defaultReceiverUpi);
+  const [isEditingUpi, setIsEditingUpi] = useState(false);
+  const [manualUtr, setManualUtr] = useState('');
+  const [showManualUtr, setShowManualUtr] = useState(false);
 
-  useEffect(() => {
-    if (isOpen && timerSeconds > 0) {
-      const interval = setInterval(() => {
-        setTimerSeconds((prev) => (prev > 0 ? prev - 1 : 0));
-      }, 1000);
-      return () => clearInterval(interval);
+  const amountRupeesFormatted = (amountPaise / 100).toFixed(2);
+  const upiPayUrl = `upi://pay?pa=${encodeURIComponent(receiverUpi)}&pn=${encodeURIComponent('Hotel Vishwaveer')}&am=${amountRupeesFormatted}&cu=INR&tn=${encodeURIComponent(bookingReference)}`;
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=6&data=${encodeURIComponent(upiPayUrl)}`;
+
+  const handleLaunchNativeUpi = () => {
+    if (typeof window !== 'undefined') {
+      window.location.href = upiPayUrl;
     }
-  }, [isOpen, timerSeconds]);
+  };
 
-  if (!isOpen) return null;
-
-  const handleAuthorizeSuccess = () => {
+  const handleAuthorizeSuccess = (customUtrParam?: string) => {
     setIsProcessing(true);
     setTimeout(() => {
       const mockPhonePeTxnId = `T${Date.now()}`;
-      const mockUtr = `${Math.floor(100000000000 + Math.random() * 900000000000)}`;
+      const mockUtr =
+        (typeof customUtrParam === 'string' && customUtrParam.trim()) ||
+        manualUtr.trim() ||
+        `${Math.floor(100000000000 + Math.random() * 900000000000)}`;
 
       setIsProcessing(false);
       onSuccess({
@@ -73,7 +76,7 @@ export function PhonePeModal({
         phonepeTransactionId: mockPhonePeTxnId,
         utrNumber: mockUtr,
       });
-    }, 1200);
+    }, 1000);
   };
 
   const handleSimulateDecline = () => {
@@ -182,21 +185,69 @@ export function PhonePeModal({
 
           {/* TAB 1: Scan QR Code */}
           {activeTab === 'qr' && (
-            <div className="flex flex-col items-center justify-center text-center p-3 space-y-3">
-              {/* Dynamic QR Box */}
-              <div className="p-3 bg-white border-2 border-purple-200 rounded-2xl shadow-inner relative group">
-                <div className="w-44 h-44 bg-purple-50 rounded-xl flex flex-col items-center justify-center p-2 relative overflow-hidden border border-purple-100">
-                  {/* Stylized QR Code Visual */}
-                  <div className="w-36 h-36 bg-[#5f259f] rounded-lg p-2.5 flex items-center justify-center relative">
-                    <div className="w-full h-full bg-white rounded-md flex items-center justify-center p-2">
-                      <QrCode className="w-28 h-28 text-[#5f259f]" />
-                    </div>
-                    {/* Centered PhonePe Badge */}
-                    <div className="absolute inset-0 m-auto w-8 h-8 rounded-full bg-[#5f259f] text-white flex items-center justify-center font-bold text-sm shadow-md border-2 border-white">
-                      पे
-                    </div>
+            <div className="flex flex-col items-center justify-center text-center p-2 space-y-3">
+              {/* Dynamic Scannable QR Box */}
+              <div className="p-3 bg-white border-2 border-purple-200 rounded-2xl shadow-inner relative group flex flex-col items-center">
+                <div className="w-44 h-44 bg-white rounded-xl flex items-center justify-center p-1 relative border border-purple-100 shadow-sm overflow-hidden">
+                  {/* Real Dynamic Scannable UPI QR Image */}
+                  <img
+                    src={qrImageUrl}
+                    alt="Scan with any UPI App"
+                    className="w-40 h-40 object-contain rounded-lg"
+                  />
+                  {/* Subtle centered badge */}
+                  <div className="absolute inset-0 m-auto w-7 h-7 rounded-full bg-[#5f259f] text-white flex items-center justify-center font-bold text-xs shadow border border-white pointer-events-none">
+                    पे
                   </div>
                 </div>
+              </div>
+
+              {/* Receiver UPI Badge & Switcher */}
+              <div className="w-full max-w-xs space-y-1.5">
+                {!isEditingUpi ? (
+                  <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-purple-50/90 border border-purple-100 text-[11px]">
+                    <div className="text-left">
+                      <span className="text-gray-500 block text-[9px] uppercase tracking-wider font-semibold">
+                        Receiving UPI Account
+                      </span>
+                      <strong className="text-[#5f259f] font-mono font-bold text-xs">
+                        {receiverUpi}
+                      </strong>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingUpi(true)}
+                      className="text-[10px] font-bold text-[#5f259f] hover:underline px-2.5 py-1 rounded-lg bg-white shadow-xs border border-purple-200"
+                    >
+                      Put My UPI
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-2.5 rounded-xl bg-purple-50 border border-purple-200 space-y-1.5 text-left animate-in fade-in">
+                    <label className="text-[10px] font-bold text-gray-700 block">
+                      Enter Your UPI ID / VPA for testing:
+                    </label>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        value={receiverUpi}
+                        onChange={(e) => setReceiverUpi(e.target.value)}
+                        placeholder="e.g. yourname@okaxis or 9820154321@ybl"
+                        className="flex-1 px-2.5 py-1.5 rounded-lg border border-purple-300 bg-white font-mono text-xs focus:outline-none focus:ring-1 focus:ring-[#5f259f]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingUpi(false)}
+                        className="px-3 py-1.5 rounded-lg bg-[#5f259f] text-white text-[10px] font-bold uppercase tracking-wider"
+                      >
+                        Save
+                      </button>
+                    </div>
+                    <span className="text-[9px] text-gray-500 block">
+                      QR dynamically updates so scanning it pays directly to your UPI ID!
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -205,7 +256,7 @@ export function PhonePeModal({
                 </span>
                 <span className="text-[11px] text-gray-500 flex items-center justify-center gap-1">
                   <Clock className="w-3 h-3 text-[#5f259f]" />
-                  QR expires in {Math.floor(timerSeconds / 60)}:
+                  QR active for {Math.floor(timerSeconds / 60)}:
                   {(timerSeconds % 60).toString().padStart(2, '0')}
                 </span>
               </div>
@@ -216,7 +267,7 @@ export function PhonePeModal({
           {activeTab === 'intent' && (
             <div className="space-y-2.5 pt-1">
               <span className="text-[11px] font-semibold text-gray-600 block mb-2">
-                Tap to pay directly with your preferred UPI app:
+                Tap to pay directly with your preferred UPI app on this device:
               </span>
 
               {[
@@ -228,7 +279,7 @@ export function PhonePeModal({
                 <button
                   key={app.name}
                   type="button"
-                  onClick={handleAuthorizeSuccess}
+                  onClick={handleLaunchNativeUpi}
                   className={`w-full p-3 rounded-xl border flex items-center justify-between font-semibold transition-all hover:shadow-sm ${app.color}`}
                 >
                   <div className="flex items-center gap-2.5">
@@ -277,33 +328,62 @@ export function PhonePeModal({
 
         {/* Action Controls */}
         <div className="p-4 bg-gray-50 border-t border-gray-200 space-y-2.5">
-          <button
-            type="button"
-            disabled={isProcessing}
-            onClick={handleAuthorizeSuccess}
-            className="w-full py-4 bg-[#5f259f] hover:bg-[#4d1d82] disabled:opacity-50 text-white rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.99] min-h-[48px]"
-          >
-            <CheckCircle2 className="w-4 h-4 text-emerald-300" />
-            <span>
-              {isProcessing
-                ? 'Processing with Bank UPI...'
-                : `Authorize ₹${(amountPaise / 100).toLocaleString('en-IN')} (PhonePe Sandbox Approval)`}
-            </span>
-          </button>
+          {!showManualUtr ? (
+            <button
+              type="button"
+              disabled={isProcessing}
+              onClick={() => handleAuthorizeSuccess()}
+              className="w-full py-4 bg-[#5f259f] hover:bg-[#4d1d82] disabled:opacity-50 text-white rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.99] min-h-[48px]"
+            >
+              <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+              <span>
+                {isProcessing
+                  ? 'Processing with Bank UPI...'
+                  : `Authorize ₹${(amountPaise / 100).toLocaleString('en-IN')} (PhonePe Sandbox Approval)`}
+              </span>
+            </button>
+          ) : (
+            <div className="space-y-2 p-3 bg-white rounded-xl border border-purple-200">
+              <label className="text-[11px] font-bold text-gray-700 block">
+                Enter 12-Digit Bank UPI Reference / UTR Number:
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  maxLength={12}
+                  value={manualUtr}
+                  onChange={(e) => setManualUtr(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="e.g. 428901234567"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-xs font-mono focus:outline-none focus:border-[#5f259f]"
+                />
+                <button
+                  type="button"
+                  disabled={manualUtr.length < 8 || isProcessing}
+                  onClick={() => handleAuthorizeSuccess(manualUtr)}
+                  className="px-4 py-2 bg-[#5f259f] hover:bg-[#4d1d82] disabled:opacity-50 text-white rounded-lg font-bold text-xs"
+                >
+                  Confirm UTR
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-between text-[11px] pt-1">
             <button
               type="button"
-              onClick={handleSimulateDecline}
-              className="text-red-600 hover:underline font-medium"
+              onClick={() => setShowManualUtr(!showManualUtr)}
+              className="text-[#5f259f] hover:underline font-semibold"
             >
-              Simulate Payment Failure
+              {showManualUtr ? '← 1-Click Sandbox Approval' : 'Paid with real app? Enter UTR'}
             </button>
 
-            <span className="text-gray-400 flex items-center gap-1">
-              <Lock className="w-3 h-3 text-[#5f259f]" />
-              Zero Fee UPI Gateway
-            </span>
+            <button
+              type="button"
+              onClick={handleSimulateDecline}
+              className="text-red-500 hover:underline font-medium text-[10px]"
+            >
+              Simulate Decline
+            </button>
           </div>
         </div>
       </div>
